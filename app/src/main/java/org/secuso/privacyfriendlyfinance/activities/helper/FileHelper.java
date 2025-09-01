@@ -29,6 +29,20 @@ import androidx.core.content.FileProvider;
 
 import java.io.File;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.security.SecureRandom;
+import java.security.spec.KeySpec;
+import javax.crypto.Cipher;
+import javax.crypto.CipherOutputStream;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
+
+
 /** Android specific file helpers */
 public class FileHelper {
     private static final String FILENAME = "export.csv";
@@ -79,4 +93,80 @@ public class FileHelper {
         }
         return false;
     }
+    
+    public static boolean driveCsv(Context context, File file, String password) {
+        try {
+            // Encrypt first
+            File encryptedFile = encryptFile(context, file, password);
+
+            // Then upload encrypted file
+            Uri outUri = getCsvFileUri(context, encryptedFile);
+            Log.d("TAG", "Exporting encrypted CSV to Google Drive: " + outUri);
+
+            if (outUri != null) {
+                Intent driveIntent = new Intent(Intent.ACTION_SEND);
+                driveIntent.setType(MIME_CSV); 
+                driveIntent.putExtra(Intent.EXTRA_STREAM, outUri);
+                driveIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                    ClipData clip = ClipData.newUri(context.getContentResolver(), outUri.toString(), outUri);
+                    driveIntent.setClipData(clip);
+                }
+
+                driveIntent.setPackage("com.google.android.apps.docs");
+
+                context.startActivity(driveIntent);
+                return true;
+            }
+        } catch (Exception e) {
+            Log.e("TAG", "Encryption or Drive export failed", e);
+        }
+        return false;
+    }
+    
+    public static File encryptFile(Context context, File inputFile, String password) throws Exception {
+        // Where encrypted file will be stored
+        File encryptedFile = new File(getSharedDir(context), inputFile.getName() + ".enc");
+
+        // Random salt (for key derivation)
+        byte[] salt = new byte[16];
+        new SecureRandom().nextBytes(salt);
+
+        // Derive AES key from password
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+        KeySpec spec = new PBEKeySpec(password.toCharArray(), salt, 65536, 256);
+        SecretKey tmp = factory.generateSecret(spec);
+        SecretKeySpec secretKey = new SecretKeySpec(tmp.getEncoded(), "AES");
+
+        // Random IV
+        byte[] iv = new byte[16];
+        new SecureRandom().nextBytes(iv);
+        IvParameterSpec ivSpec = new IvParameterSpec(iv);
+
+        // Cipher
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
+
+        try (FileOutputStream fos = new FileOutputStream(encryptedFile)) {
+            // Write salt + iv at the beginning (needed for decryption later)
+            fos.write(salt);
+            fos.write(iv);
+
+            try (CipherOutputStream cos = new CipherOutputStream(fos, cipher);
+                 FileInputStream fis = new FileInputStream(inputFile)) {
+                byte[] buffer = new byte[4096];
+                int read;
+                while ((read = fis.read(buffer)) != -1) {
+                    cos.write(buffer, 0, read);
+                }
+            }
+        }
+
+        return encryptedFile;
+    }
 }
+
+
+
+

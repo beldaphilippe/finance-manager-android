@@ -47,6 +47,9 @@ import org.secuso.privacyfriendlyfinance.domain.model.Transaction;
 import org.secuso.privacyfriendlyfinance.domain.model.common.Id2Name;
 import org.secuso.privacyfriendlyfinance.services.CsvImportService;
 
+import org.secuso.privacyfriendlyfinance.activities.dialog.PasswordInputDialog;
+import org.secuso.privacyfriendlyfinance.helpers.SharedPreferencesManager;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.util.List;
@@ -95,6 +98,10 @@ public class TransactionsActivity extends TransactionListActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
+            case R.id.exportDriveButton:
+                return onDriveExportCsv();
+            case R.id.resetPasswordButton:
+                return onForgetPasswordClicked();
             case R.id.exportButton:
                 return onExportCsv();
             case R.id.importCSV:
@@ -103,6 +110,15 @@ public class TransactionsActivity extends TransactionListActivity {
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+
+    public boolean onForgetPasswordClicked() {
+        // Remove stored password
+        SharedPreferencesManager.get(this).removeBackupCsvPassphrase();
+
+        // Notify user
+        Toast.makeText(this, "Saved password has been removed", Toast.LENGTH_SHORT).show();
+        return true;
     }
 
     private boolean onExportCsv() {
@@ -134,6 +150,65 @@ public class TransactionsActivity extends TransactionListActivity {
             FileHelper.sendCsv(this, getString(R.string.nav_title_export_as_csv), file);
         });
     }
+
+    // private boolean onDriveExportCsv() {
+    //     File file = FileHelper.getCsvFile(this,"Transactions-Export.csv");
+    //     final List<Transaction> transactionList = this.viewModel.getTransactions().getValue();
+    //     new Thread(() -> doDriveExportAsync(transactionList, file)).start();
+    //     return true;
+    // }
+
+    private boolean onDriveExportCsv() {
+        File file = FileHelper.getCsvFile(this, "fmanager-transactions.csv");
+        final List<Transaction> transactionList = this.viewModel.getTransactions().getValue();
+        
+        // Retrieve stored password if exists
+        String savedPassword = SharedPreferencesManager.get(this).getBackupCsvPassphrase();
+        
+        if (savedPassword != null && !savedPassword.isEmpty()) {
+            // Password already saved -> use it directly
+            new Thread(() -> doDriveExportAsync(transactionList, file, savedPassword)).start();
+        } else {
+            // Ask user for password
+            PasswordInputDialog.show(this, password -> {
+                    if (password == null || password.isEmpty()) {
+                        // User cancelled or entered empty password
+                        return;
+                    }
+
+                    // Save password for future use
+                    SharedPreferencesManager.get(this).setBackupCsvPassphrase(password);
+
+                    // Run encryption + Drive export asynchronously
+                    new Thread(() -> doDriveExportAsync(transactionList, file, password)).start();
+                });
+        }
+        return true;
+    }
+
+    private void doDriveExportAsync(List<Transaction> transactionList, File file, String password) {
+        CsvExporter exporter = null;
+
+        Id2Name<Category> id2Category = new Id2Name<>(FinanceDatabase.getInstance(getApplication()).categoryDao().getAllSynchron());
+        Id2Name<Account> id2Account = new Id2Name<>(FinanceDatabase.getInstance(getApplication()).accountDao().getAllSynchron());
+        try {
+            exporter = new CsvExporter(new FileWriter(file), id2Category, id2Account);
+            exporter.writeTransactions(transactionList);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                exporter.close();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        runOnUiThread(() -> {
+            FileHelper.driveCsv(this, file, password);
+        });
+    }
+    
     private void openFilePicker() {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("text/*");

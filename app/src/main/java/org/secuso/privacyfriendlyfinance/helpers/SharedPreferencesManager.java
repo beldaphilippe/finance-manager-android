@@ -36,6 +36,7 @@ public class SharedPreferencesManager {
 
     public static final String KEY_IS_FIRST_TIME_LAUNCH = "isFirstTimeLaunch";
     public static final String KEY_DB_PASSPHRASE = "dbPassphrase";
+    public static final String KEY_BACKUP_CSV_PASSPHRASE = "dbPassphrase";
 
     private final SharedPreferences pref;
     private final SharedPreferences.Editor editor;
@@ -67,7 +68,21 @@ public class SharedPreferencesManager {
     public String getDbPassphrase() {
         return pref.getString(KEY_DB_PASSPHRASE, null);
     }
+    
+    public void removeBackupCsvPassphrase() {
+        editor.remove(KEY_BACKUP_CSV_PASSPHRASE);
+        editor.commit();
+    }
+    
+    public void setBackupCsvPassphrase(String passphrase) {
+        editor.putString(KEY_BACKUP_CSV_PASSPHRASE, passphrase);
+        editor.commit();
+    }
 
+    public String getBackupCsvPassphrase() {
+        return pref.getString(KEY_BACKUP_CSV_PASSPHRASE, null);
+    }
+    
     public static SharedPreferencesManager get(Context context) {
         if(sharedPreferencesManager == null) {
             synchronized (SharedPreferencesManager.class) {

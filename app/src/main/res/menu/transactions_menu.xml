@@ -2,6 +2,12 @@
 
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/exportDriveButton"
+        android:title="@string/nav_title_export_on_drive_as_csv" />
+    <item
+        android:id="@+id/resetPasswordButton"
+        android:title="@string/nav_title_reset_password" />
+    <item
         android:id="@+id/exportButton"
         android:title="@string/nav_title_export_as_csv" />
     <item

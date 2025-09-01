@@ -182,6 +182,8 @@
     <string name="activity_startup_default_account_name">Main Account</string>
 
     <!-- ### CSV Import / Export ### -->
+    <string name="nav_title_export_on_drive_as_csv">Export encrypted CSV</string>
+    <string name="nav_title_reset_password">Reset password</string>
     <string name="nav_title_export_as_csv">Export as CSV</string>
     <string name="nav_title_import_csv">Import CSV</string>
     <string name="activity_transactions_activity_file_chooser">Choose a csv</string>

@@ -42,7 +42,7 @@ public final class CurrencyHelper {
         Context context = textView.getContext();
         if (balance == null)  balance = 0L;
         String prefix = setColor && balance > 0 ? "+" : "";
-        textView.setText(prefix + NumberFormat.getCurrencyInstance().format(balance.doubleValue() / 100.0));
+        textView.setText(prefix + NumberFormat.getCurrencyInstance(Locale.FRANCE).format(balance.doubleValue() / 100.0));
         if (setColor) {
             if (balance < 0) {
                 textView.setTextColor(context.getResources().getColor(R.color.red));
@@ -86,6 +86,6 @@ public final class CurrencyHelper {
     }
 
     public static String convertToCurrencyString(Long amount) {
-        return NumberFormat.getCurrencyInstance().format(amount.doubleValue() / 100.0);
+        return NumberFormat.getCurrencyInstance(Locale.FRANCE).format(amount.doubleValue() / 100.0);
     }
 }
